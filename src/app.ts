@@ -59,6 +59,35 @@ app.use((req, res, next) => {
 // Example RBAC middleware for a protected route:
 // app.use("/api/protected", (req, res, next) => rbacMiddleware.checkRole("admin") ? next() : res.status(403).send("Forbidden"));
 
+// Helper middlewares for RBAC and ABAC protections
+const requireRole = (requiredRole: string) => {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const rolesHeader = req.headers['x-roles'];
+    const roles = Array.isArray(rolesHeader)
+      ? rolesHeader
+      : (typeof rolesHeader === 'string' ? rolesHeader.split(',').map(r => r.trim()) : []);
+    const rbac = new RBACMiddleware(roles as string[]);
+    if (!rbac.checkRole(requiredRole)) {
+      return res.status(403).send('Forbidden');
+    }
+    (req as any).rbac = rbac;
+    next();
+  };
+};
+
+const requireAbac = (action: string, resourceAttributes: Record<string, any>) => {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const userAttributes: Record<string, any> = {
+      role: typeof req.headers['x-role'] === 'string' ? req.headers['x-role'] : 'user',
+      department: typeof req.headers['x-department'] === 'string' ? req.headers['x-department'] : 'general'
+    };
+    if (!abacMiddleware.checkAttributes(userAttributes, resourceAttributes, action)) {
+      return res.status(403).send('Forbidden');
+    }
+    next();
+  };
+};
+
 // Example route to connect to backend service
 app.get('/api/data', async (req, res) => {
     try {
@@ -72,6 +101,16 @@ app.get('/api/data', async (req, res) => {
     }
 });
 
+// Protected route with RBAC (admin) and ABAC (department match + action=view)
+app.get(
+  '/api/protected',
+  requireRole('admin'),
+  requireAbac('view', { department: 'engineering' }),
+  (req, res) => {
+    res.json({ message: 'Protected resource accessed' });
+  }
+);
+
 // Connect to backend service
 /* backendConnector.connect(securityConfig.backendUrl); */
 // backendConnector.connect("session-token"); // Example usage, remove if not needed
@@ -79,6 +118,16 @@ app.get('/api/data', async (req, res) => {
 // Sample route
 app.get('/api/resource', (req, res) => {
     res.send('Resource accessed');
+});
+
+// Health and readiness endpoints
+app.get('/healthz', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+app.get('/readyz', (_req, res) => {
+  // Optionally, add deeper checks (e.g., backendConnector connectivity)
+  res.status(200).json({ status: 'ready' });
 });
 
 // read TLS cert/key if provided
