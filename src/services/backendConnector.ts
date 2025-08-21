@@ -1,23 +1,32 @@
-export class BackendConnector {
-    private backendUrl: string;
+import axios from 'axios';
+export default class BackendConnector {
+    //private backendUrl: string;
     private baseUrl: string;
+    private apiKey: string;
     private sessionToken: string | null;
 
-    constructor(baseUrl: string) {
+    constructor(baseUrl: string, apiKey: string) {
         this.baseUrl = baseUrl;
-	this.backendUrl = baseUrl;
+        this.apiKey = apiKey;
         this.sessionToken = null;
     }
     
     public async connect_asyn(): Promise<void> {
         // Implement secure connection logic here
-        console.log(`Connecting to backend service at ${this.backendUrl}`);
+    console.log(`Connecting to backend service at ${this.baseUrl}`);
         // Example: Use HTTPS or other secure protocols
     }
 
-    public connect(token: string): void {
-        this.sessionToken = token;
+    async connect(sessionToken: string): Promise<any> {
+        /* this.sessionToken = token; */
         // Logic to establish a secure connection to the backend service
+        const resp = await axios.get(`${this.baseUrl}/data`, {
+            headers: {
+                'Authorization': `Bearer ${sessionToken}`,
+                'x-api-key': this.apiKey
+            }
+        });
+        return resp.data;
     }
 
     public async fetchData(endpoint: string): Promise<any> {
@@ -41,7 +50,7 @@ export class BackendConnector {
     }
     public async disconnect(): Promise<void> {
         // Implement disconnection logic here
-        console.log(`Disconnecting from backend service at ${this.backendUrl}`);
+    console.log(`Disconnecting from backend service at ${this.baseUrl}`);
     }
 
     public async sendData(data: any): Promise<void> {

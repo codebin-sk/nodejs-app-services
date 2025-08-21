@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: middleware-integration-service
+  labels:
+    app: middleware-integration-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: middleware-integration-service
+  template:
+    metadata:
+      labels:
+        app: middleware-integration-service
+    spec:
+      containers:
+      - name: middleware-integration-service
+        image: your-registry/middleware-integration-service:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: production
+        envFrom:
+        - secretRef:
+            name: middleware-secrets
+        - configMapRef:
+            name: middleware-config
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
