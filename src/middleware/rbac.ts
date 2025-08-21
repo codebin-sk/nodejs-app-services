@@ -6,9 +6,9 @@ class RBACMiddleware {
     }
 
     static createMiddleware(roles: string[]) {
-        return (req, res, next) => {
+        return (req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) => {
             const rbac = new RBACMiddleware(roles);
-            req.rbac = rbac;
+            (req as any).rbac = rbac;
             next();
         };
     }

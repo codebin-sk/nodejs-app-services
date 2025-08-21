@@ -24,18 +24,23 @@ export class ABACMiddleware {
         return false; // Default deny
     }
     
-    checkAttributes_a(userAttributes, resourceAttributes) {
+    checkAttributes_a(userAttributes: Record<string, any>, resourceAttributes: Record<string, any>) {
         // Logic to evaluate user attributes against resource attributes
         // Return true if access is granted, otherwise false
-        return this.evaluateAccess(userAttributes, resourceAttributes);
+        return this.evaluateAccess_a(userAttributes, resourceAttributes);
     }
 
-    evaluateAccess_a(userAttributes, resourceAttributes) {
-        // Implement the logic to compare user attributes with resource attributes
+    evaluateAccess_a(userAttributes: Record<string, any>, resourceAttributes: Record<string, any>): boolean {
+        /* // Implement the logic to compare user attributes with resource attributes
         // This is a placeholder for the actual evaluation logic
         // Example: return userAttributes.role === resourceAttributes.requiredRole;
 
         // For demonstration purposes, let's assume access is granted if the user has a specific attribute
-        return userAttributes.some(attr => resourceAttributes.includes(attr));
+        return userAttributes.some((attr: any) => resourceAttributes.includes(attr)); */
+        
+        // Example logic: check if any user attribute value matches any resource attribute value
+        const userValues = Object.values(userAttributes);
+        const resourceValues = Object.values(resourceAttributes);
+        return userValues.some(val => resourceValues.includes(val));
     }
 }

@@ -46,7 +46,7 @@ export class SessionMonitor {
     getActiveSessions(): Map<string, { startTime: Date; endTime?: Date }> {
         return this.sessions;
     }
-    getSessionInfo(userId: string): { startTime: Date; activity: Date } | undefined {
+    getSessionInfo(userId: string): { startTime: Date; endTime?: Date; activity?: Date } | undefined {
         return this.sessions.get(userId);
     }
 }
