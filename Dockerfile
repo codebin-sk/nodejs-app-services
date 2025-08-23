@@ -1,23 +1,10 @@
-# Use an official Node.js runtime as a parent image
-FROM node:18-alpine
-
-# Set working directory
-WORKDIR /app
-
-# Copy package.json and package-lock.json
-COPY package.json package-lock.json* ./
-
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy the rest of the application code
+FROM node:lts-alpine
+ENV NODE_ENV=production
+WORKDIR /usr/src/app
+COPY ["package.json", "package-lock.json*", "npm-shrinkwrap.json*", "./"]
+RUN npm install --production --silent && mv node_modules ../
 COPY . .
-
-# Build TypeScript
-RUN npm run build
-
-# Expose the port
 EXPOSE 3000
-
-# Start the application
-CMD ["node", "dist/app.js"]
+RUN chown -R node /usr/src/app
+USER node
+CMD ["npm", "start"]
