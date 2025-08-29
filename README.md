@@ -21,6 +21,7 @@ This project is licensed under the MIT License. See the LICENSE file for more de
 | GET    | `/api/resource` | Simple resource endpoint. Starts a session if `x-user-id` is provided.      |
 | GET    | `/api/data`     | Connects to the configured backend and returns a connectivity status JSON.  |
 | GET    | `/api/protected`| Protected endpoint requiring admin role and engineering department.         |
+| POST   | `/api/send-email` | Send an email using the configured provider (Google SMTP relay or AWS SES). |
 | GET    | `/healthz`      | Health check endpoint. Returns 200 status with `{ status: "ok" }`.         |
 | GET    | `/readyz`       | Readiness check endpoint. Returns 200 status with `{ status: "ready" }`.   |
 
@@ -74,6 +75,37 @@ Forbidden
 - 200 Response body (JSON):
 ```
 { "status": "ready" }
+```
+
+### Send Email API
+
+POST `/api/send-email`
+
+- Description: Sends an email using the configured provider. The service selects the provider based on the `EMAIL_PROVIDER` environment variable (`google` or `ses`).
+- Request body (JSON):
+
+```
+{
+   "to": "recipient@example.com",
+   "subject": "Test message",
+   "text": "Plain text body"  // or "html": "<p>HTML body</p>"
+}
+```
+
+- Response: 200 on success: `{ "message": "Email sent successfully" }`.
+- Errors: 400 for missing fields, 500 for send failures. Details are returned in the `details` field on error responses.
+
+- Environment variables used by email feature:
+   - `EMAIL_PROVIDER` - `google` (default) or `ses`.
+   - `SMTP_USER` / `SMTP_PASS` - credentials for Google SMTP relay if required by your relay configuration.
+   - `AWS_REGION` (when using `ses`) - region for the AWS SES client. AWS credentials must be available via environment, shared credentials, or instance role.
+
+Example curl (using Google SMTP provider configured via env):
+
+```
+curl -X POST http://localhost:3000/api/send-email \
+   -H "Content-Type: application/json" \
+   -d '{"to":"you@example.com","subject":"Hello","text":"Test email"}'
 ```
 
 ## Security and Configuration

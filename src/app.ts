@@ -2,10 +2,14 @@ import express from 'express';
 import session from 'express-session';
 import https from 'https';
 import fs from 'fs';
+import path from 'path';
+import swaggerUi from 'swagger-ui-express';
+import YAML from 'yamljs';
 import RBACMiddleware from './middleware/rbac';
 import { ABACMiddleware } from './middleware/abac';
 import { SessionMonitor } from './middleware/sessionMonitor';
 import BackendConnector from './services/backendConnector';
+import { EmailSystem, EmailOptions, EmailProvider } from './system/emailSystem';
 /* import { securityConfig } from './config/security'; */
 import {
     SESSION_SECRET,
@@ -17,6 +21,57 @@ import {
 
 const app = express();
 const port = parseInt(process.env.PORT || '3000', 10);
+
+// Email system setup (provider configured via EMAIL_PROVIDER)
+const EMAIL_PROVIDER = (process.env.EMAIL_PROVIDER as EmailProvider) || 'google';
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const AWS_REGION = process.env.AWS_REGION || undefined;
+
+const emailSystem = new EmailSystem(
+  EMAIL_PROVIDER === 'ses'
+    ? { provider: 'ses', sesConfig: AWS_REGION ? { region: AWS_REGION } : undefined }
+    : { provider: 'google', user: SMTP_USER, pass: SMTP_PASS }
+);
+// Email sending endpoint
+app.post('/api/send-email', async (req, res) => {
+  const { to, subject, text, html } = req.body;
+  if (!to || !subject || (!text && !html)) {
+    return res.status(400).json({ error: 'Missing required fields: to, subject, text/html' });
+  }
+  const mailOptions: EmailOptions = {
+    from: SMTP_USER,
+    to,
+    subject,
+    text,
+    html
+  };
+  try {
+    await emailSystem.sendEmail(mailOptions);
+    res.json({ message: 'Email sent successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error sending email', details: error instanceof Error ? error.message : error });
+  }
+});
+
+// Serve OpenAPI / Swagger UI only in development
+if (process.env.NODE_ENV === 'development') {
+  try {
+    const openapiPath = path.join(__dirname, '..', 'docs', 'openapi.yaml');
+    const openapiSpec = YAML.load(openapiPath);
+    app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
+    // also serve raw YAML
+    app.get('/docs/openapi.yaml', (_req, res) => {
+      res.sendFile(openapiPath);
+    });
+    console.log('Swagger UI enabled at /docs (development mode)');
+  } catch (err) {
+    console.warn('Swagger UI disabled: could not load openapi.yaml', err instanceof Error ? err.message : err);
+  }
+} else {
+  // In non-development environments, do not expose interactive API docs
+  console.log('Swagger UI not enabled (NODE_ENV !== development)');
+}
 
 // Initialize middleware instances
 const rbacMiddleware = new RBACMiddleware(["admin", "user"]); // Example roles

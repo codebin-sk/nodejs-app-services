@@ -1,0 +1,179 @@
+openapi: 3.0.3
+info:
+  title: Middleware Integration Service API
+  description: "OpenAPI spec for the Middleware Integration Service (health checks, demo APIs, and send-email)."
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /readyz:
+    get:
+      summary: Readiness check
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/send-email:
+    post:
+      summary: Send an email using the configured provider (google | ses)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailRequest'
+      responses:
+        '200':
+          description: Email sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Email sent successfully
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error sending email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/resource:
+    get:
+      summary: Demo resource endpoint that triggers session monitoring
+      responses:
+        '200':
+          description: Resource accessed
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Resource accessed
+  /api/data:
+    get:
+      summary: Call configured backend and return connectivity status
+      responses:
+        '200':
+          description: Connected to backend service
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Connected to backend service
+        '500':
+          description: Backend connectivity error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/protected:
+    get:
+      summary: Protected endpoint demonstrating RBAC / ABAC
+      security:
+        - ApiKeyAuth: []
+        - CookieAuth: []
+      parameters:
+        - in: header
+          name: x-roles
+          schema:
+            type: string
+          description: Comma-separated roles (e.g., admin,user)
+        - in: header
+          name: x-role
+          schema:
+            type: string
+          description: Primary role
+        - in: header
+          name: x-department
+          schema:
+            type: string
+          description: Attribute used by ABAC policies
+      responses:
+        '200':
+          description: Protected resource accessed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Protected resource accessed
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: connect.sid
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+    SendEmailRequest:
+      type: object
+      required:
+        - to
+        - subject
+      properties:
+        to:
+          type: string
+          format: email
+          example: recipient@example.com
+        subject:
+          type: string
+          example: Test message
+        text:
+          type: string
+          example: This is a plain text body
+        html:
+          type: string
+          example: '<p>This is an <strong>HTML</strong> body</p>'
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 500
+        message:
+          type: string
+          example: An error occurred
+        details:
+          type: string
+          nullable: true
