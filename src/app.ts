@@ -204,3 +204,27 @@ if (tlsOptions) {
     console.log(`HTTP Middleware Service listening on ${port}`);
   });
 }
+
+import { sendMail } from './utils/mailer';
+
+const app = express();
+const port = parseInt(process.env.PORT || '3000', 10);
+
+// Initialize middleware instances
+const rbacMiddleware = new RBACMiddleware(["admin", "user"]); // Example roles
+const abacMiddleware = new ABACMiddleware();
+const sessionMonitor = new SessionMonitor();
+// Connect to backend service
+const backendConnector = new BackendConnector(BACKEND_URL, BACKEND_API_KEY); //backend URL here
+
+// Sample endpoint to send email
+app.post('/api/send-email', async (req, res) => {
+  const { to, subject, text, html } = req.body;
+  try {
+    const info = await sendMail({ to, subject, text, html });
+    res.json({ success: true, messageId: info.messageId });
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: errorMsg });
+  }
+});
