@@ -21,6 +21,8 @@ import {
 
 const app = express();
 const port = parseInt(process.env.PORT || '3000', 10);
+// Ensure JSON body parser is enabled before all routes
+app.use(express.json());
 
 // Email system setup (provider configured via EMAIL_PROVIDER)
 const EMAIL_PROVIDER = (process.env.EMAIL_PROVIDER as EmailProvider) || 'google';
@@ -33,8 +35,12 @@ const emailSystem = new EmailSystem(
     ? { provider: 'ses', sesConfig: AWS_REGION ? { region: AWS_REGION } : undefined }
     : { provider: 'google', user: SMTP_USER, pass: SMTP_PASS }
 );
+//import { sendMail } from './utils/mailer';
 // Email sending endpoint
 app.post('/api/send-email', async (req, res) => {
+  if (!req.body || Object.keys(req.body).length === 0) {
+    return res.status(400).json({ error: 'No payload provided. Please send a JSON body with to, subject, and text or html.' });
+  }
   const { to, subject, text, html } = req.body;
   if (!to || !subject || (!text && !html)) {
     return res.status(400).json({ error: 'Missing required fields: to, subject, text/html' });
@@ -47,10 +53,15 @@ app.post('/api/send-email', async (req, res) => {
     html
   };
   try {
+    //const info = await emailSystem.sendEmail(mailOptions);
+    //res.json({ success: true, messageId: info.messageId });
+
     await emailSystem.sendEmail(mailOptions);
     res.json({ message: 'Email sent successfully' });
   } catch (error) {
-    res.status(500).json({ error: 'Error sending email', details: error instanceof Error ? error.message : error });
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    //res.status(500).json({ success: false, error: errorMsg }); //details: errorMsg
+    res.status(500).json({ error: 'Error sending email', details: errorMsg });
   }
 });
 
@@ -195,36 +206,13 @@ if (TLS_CERT_PATH && TLS_KEY_PATH) {
 }
 
 // Start the server: HTTPS or HTTP
+const logMessage = `HTTP(S) Middleware Service listening on ${port}`;
 if (tlsOptions) {
   https.createServer(tlsOptions, app).listen(port, () => {
-    console.log(`HTTPS Middleware Service listening on ${port}`);
+    console.log(logMessage);
   });
 } else {
   app.listen(port, () => {
-    console.log(`HTTP Middleware Service listening on ${port}`);
+    console.log(logMessage);
   });
 }
-
-import { sendMail } from './utils/mailer';
-
-const app = express();
-const port = parseInt(process.env.PORT || '3000', 10);
-
-// Initialize middleware instances
-const rbacMiddleware = new RBACMiddleware(["admin", "user"]); // Example roles
-const abacMiddleware = new ABACMiddleware();
-const sessionMonitor = new SessionMonitor();
-// Connect to backend service
-const backendConnector = new BackendConnector(BACKEND_URL, BACKEND_API_KEY); //backend URL here
-
-// Sample endpoint to send email
-app.post('/api/send-email', async (req, res) => {
-  const { to, subject, text, html } = req.body;
-  try {
-    const info = await sendMail({ to, subject, text, html });
-    res.json({ success: true, messageId: info.messageId });
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    res.status(500).json({ success: false, error: errorMsg });
-  }
-});

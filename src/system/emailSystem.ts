@@ -1,5 +1,13 @@
+
 import nodemailer from 'nodemailer';
-import AWS from 'aws-sdk';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import {
+  SMTP_USERNAME,
+  SMTP_PASSWORD,
+  SMTP_HOST,
+  SMTP_PORT,
+  SMTP_SECURE
+} from '../config/email';
 
 export type EmailProvider = 'google' | 'ses';
 
@@ -13,27 +21,29 @@ export interface EmailOptions {
 
 export class EmailSystem {
   private transporter: nodemailer.Transporter | null = null;
-  private ses: AWS.SES | null = null;
+  private sesClient: SESClient | null = null;
   private provider: EmailProvider;
 
   constructor(config: {
     provider: EmailProvider;
     user?: string;
     pass?: string;
-    sesConfig?: AWS.SES.ClientConfiguration;
+    sesConfig?: any;
   }) {
     this.provider = config.provider;
 
     if (this.provider === 'google') {
       this.transporter = nodemailer.createTransport({
-        host: 'smtp-relay.gmail.com',
-        port: 587,
-        secure: false, // STARTTLS
-        auth: config.user && config.pass ? { user: config.user, pass: config.pass } : undefined,
-        tls: { rejectUnauthorized: true }
+        host: SMTP_HOST,
+        port: SMTP_PORT,
+        secure: SMTP_SECURE,
+        auth: {
+          user: SMTP_USERNAME,
+          pass: SMTP_PASSWORD
+        }
       });
     } else if (this.provider === 'ses') {
-      this.ses = new AWS.SES(config.sesConfig);
+      this.sesClient = new SESClient(config.sesConfig ?? {});
     }
   }
 
@@ -51,19 +61,23 @@ export class EmailSystem {
     }
 
     if (this.provider === 'ses') {
-      if (!this.ses) throw new Error('SES client not configured');
-      const params: AWS.SES.SendEmailRequest = {
+      if (!this.sesClient) throw new Error('SES client not configured');
+      const params: any = {
         Source: options.from,
         Destination: { ToAddresses: Array.isArray(options.to) ? options.to : [options.to] },
         Message: {
           Subject: { Data: options.subject },
-          Body: {
-            Text: options.text ? { Data: options.text } : undefined,
-            Html: options.html ? { Data: options.html } : undefined
-          }
+          Body: {}
         }
       };
-      await this.ses.sendEmail(params).promise();
+      if (options.text) {
+        params.Message.Body = { ...params.Message.Body, Text: { Data: options.text } };
+      }
+      if (options.html) {
+        params.Message.Body = { ...params.Message.Body, Html: { Data: options.html } };
+      }
+      const command = new SendEmailCommand(params);
+      await this.sesClient.send(command);
       return;
     }
 
@@ -71,14 +85,7 @@ export class EmailSystem {
   }
 }
 
-import {
-  SMTP_USERNAME,
-  SMTP_PASSWORD,
-  SMTP_HOST,
-  SMTP_PORT,
-  SMTP_SECURE
-} from '../config/email';
-
+// Standalone mailer for direct usage
 export const mailTransport = nodemailer.createTransport({
   host: SMTP_HOST,
   port: SMTP_PORT,
